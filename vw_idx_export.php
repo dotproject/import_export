@@ -77,8 +77,11 @@ function setPermItem( key, val ) {
         }
 }
 </script>
+<!--index.php?m=<?php echo $m; ?>&a=savefile.php
 
-<form name="frm" action="index.php?m=<?php echo $m; ?>&a=savefile.php" method="post">
+modules/<?php echo $m; ?>/savefile.php
+-->
+<form name="frm" action="modules/<?php echo $m; ?>/savefile.php" method="post">
   <input type="hidden" name="item" value="-1" />
   <table>
   <tr><td rowspan="5">
@@ -108,7 +111,7 @@ function setPermItem( key, val ) {
     <td>
       <?php 
         $fileType = array(1 => ".zip - Compressed sql file.", 0 => ".sql - Text file with SQL queries."); 
-        echo arraySelect($fileType, 'file', '', '1');
+        echo arraySelect($fileType, 'file_type', '', '1');
       ?>
     </td>
   </tr>
