@@ -6,8 +6,10 @@
  */
 
 // TODO Change this!!!
-require "../../includes/config.php";
-require "../../classes/ui.class.php";
+require_once "../../includes/config.php";
+require_once "../../classes/ui.class.php";
+require_once "../../includes/main_functions.php";
+require_once "../../includes/db_adodb.php";
 
 session_name( 'dotproject' );
 if (get_cfg_var( 'session.auto_start' ) > 0) {
@@ -15,18 +17,17 @@ if (get_cfg_var( 'session.auto_start' ) > 0) {
 }
 session_start();
 
+  require_once( $dPconfig['root_dir'] . '/includes/db_connect.php' );
+  require_once( "../../misc/debug.php" );
 // check if session has previously been initialised
 // if no ask for logging and do redirect
 if (!isset( $_SESSION['AppUI'] ) || isset($_GET['logout'])) {
     $_SESSION['AppUI'] = new CAppUI();
   $AppUI =& $_SESSION['AppUI'];
-  $AppUI->setConfig( $dPconfig );
+  //$AppUI->setConfig( $dPconfig );
   $AppUI->checkStyle();
-       
   require_once( $AppUI->getSystemClass( 'dp' ) );
-  require_once( "../../includes/db_connect.php" );
-  require_once( "../../includes/main_functions.php" );
-  require_once( "../../misc/debug.php" );
+  
 
 if ($AppUI->doLogin()) $AppUI->loadPrefs( 0 );
         // check if the user is trying to log in
@@ -43,7 +44,7 @@ if ($AppUI->doLogin()) $AppUI->loadPrefs( 0 );
                         session_unset();
                         exit;
                 }
-                header ( "Location: fileviewer.php?$redirect" );
+ //               header ( "Location: fileviewer.php?$redirect" );
                 exit;
         }       
 
@@ -66,10 +67,7 @@ if ($AppUI->doLogin()) $AppUI->loadPrefs( 0 );
 }
 $AppUI =& $_SESSION['AppUI'];
 
-require "{$AppUI->cfg['root_dir']}/includes/db_connect.php";
-
-include "{$AppUI->cfg['root_dir']}/includes/main_functions.php";
-include "{$AppUI->cfg['root_dir']}/includes/permissions.php";
+include "{$dPconfig['root_dir']}/includes/permissions.php";
 
 $canRead = !getDenyRead( 'backup' );
 if (!$canRead) {
@@ -108,7 +106,8 @@ function bodyList($row)
     $q = "\"";
 
   $sql = "";
-  foreach($row as $col)
+  foreach($row as $key=>$col)
+    if (!is_int($key))
     $sql .= (($col == null)?"NULL":($q . str_replace($q, "\$q", $col) . $q)) . ",";
     // Substitute the entire line for csv if necessary.
   $sql = substr($sql, 0, -1); // remove last comma
@@ -129,7 +128,8 @@ function headerList($row)
 
   $sql = "";
   foreach ($row as $key=>$col)
-    $sql .= "$q$key$q,";
+    if (!is_int($key))
+        $sql .= "$q$key$q,";
   $sql = substr($sql, 0, -1);
 
   return $sql;
@@ -149,11 +149,11 @@ function tableInsert($table, $keyCol=1, $keyVal=1)
   }
   else if ($file_type / 2 == 0)
   {
-    $out .= "INSERT INTO `$table` (" . headerList($list[0]) . ") VALUES "; 
+//    $out .= "INSERT INTO `$table` (" . headerList($list[0]) . ") VALUES "; 
     foreach ($list as $row)
-      $out .= "(".bodyList($row)."), ";
-    $out = substr($out, 0, -2);
-    //valuesList($table, $row);
+//      $out .= "(".bodyList($row)."), ";
+//    $out = substr($out, 0, -2);
+    $out = valuesList($table, $row);
   }
   return $out;
 }
@@ -194,6 +194,49 @@ function dumpTasks($project=-1, $task=-1)
   }
 
   return $output;
+}
+
+function dumpContacts()
+{
+        global $AppUI;
+        $sql = "SELECT * FROM contacts";
+        $contacts = db_loadList( $sql );
+
+        // include PEAR vCard class
+        require_once( $AppUI->getLibraryClass( 'PEAR/Contact_Vcard_Build' ) );
+
+        $output = '';
+        foreach($contacts as $contact)
+        {
+        // instantiate a builder object
+        // (defaults to version 3.0)
+        $vcard = new Contact_Vcard_Build();
+        $vcard->setFormattedName($contact['contact_first_name'].' '.$contact['contact_last_name']);
+        $vcard->setName($contact['contact_last_name'], $contact['contact_first_name'], $contact['contact_type'],
+                $contact['contact_title'], '');
+        $vcard->setSource($dPconfig['company_name'].' '.$dPconfig['page_title'].': '.$dPconfig['site_domain']);
+        $vcard->setBirthday($contact['contact_birthday']);
+       $contact['contact_notes'] = str_replace("\r", " ", $contact['contact_notes'] );
+        $vcard->setNote($contact['contact_notes']);
+        $vcard->addOrganization($contact['contact_company']);
+        $vcard->addTelephone($contact['contact_phone']);
+        $vcard->addParam('TYPE', 'PF');
+        $vcard->addTelephone($contact['contact_phone2']);
+        $vcard->addTelephone($contact['contact_mobile']);
+        $vcard->addParam('TYPE', 'car');
+        $vcard->addEmail($contact['contact_email']);
+        //$vcard->addParam('TYPE', 'WORK');
+        $vcard->addParam('TYPE', 'PF');
+        $vcard->addEmail($contact['contact_email2']);
+        //$vcard->addParam('TYPE', 'HOME');
+        $vcard->addAddress('', $contact['contact_address2'], $contact['contact_address1'],
+                $contact['contact_city'], $contact['contact_state'], $contact['contact_zip'], $contact['contact_country']);
+
+        $output .= $vcard->fetch();
+        $output .= "\n\n";
+        }
+
+        return $output;
 }
 
 function dumpForums($project=-1, $forum=-1)
@@ -242,16 +285,46 @@ function dumpProject($project=-1)
   return $output;
 }
 
+function dumpCompanies($company)
+{
+$output = "";
+  $sql = "SELECT * FROM companies";
+  if ($company != -1)
+    $sql .= " WHERE company_id=$company";
+
+  $rows = db_loadList($sql);
+  foreach ($rows as $row)
+    $output .= valuesList("companies", $row); 
+
+  $output .= "#project_company#\n";
+  $sql = "SELECT * FROM projects";
+  if ($company != -1)
+    $sql .= " WHERE project_company=$company";
+
+  $rows = db_loadList($sql);
+  foreach ($rows as $row)
+  {
+    $output .= dumpProject($row['project_id']);
+  }
+
+
+  return $output;
+}
+
 function dump($module, $item, $type)
 {
   if ($type == 2)
     return tableInsert($module);
+  if ($type == 3 && $module == 'contacts')
+    return dumpContacts();
   if ($module == "all")
     return dump();
   else if ($module == "projects")
     return dumpProject($item);
   else if ($module == "tasks")
     return dumpTasks(-1, $item);
+  else if ($module == "companies")
+    return dumpCompanies($item);
   else
     return tableInsert($module);
 }
@@ -278,6 +351,11 @@ else if ($file_type == '1')
 
   $file .= '.zip';
   $mime_type = 'application/x-zip';
+}
+else if ($file_type == '3')
+{
+  $file .= '.vcf';
+  $mime_type = 'text/x-vcard';
 }
 else
 {

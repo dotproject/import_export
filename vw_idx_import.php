@@ -14,9 +14,9 @@
 
     db_exec($sql);
     if (db_error())
-      echo $AppUI->_("Failure: ") . db_error();
+      echo $AppUI->_('Failure') . db_error();
     else
-      echo $AppUI->_("Success!");
+      echo $AppUI->_('Success');
   }
 
 ?>

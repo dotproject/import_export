@@ -40,6 +40,7 @@ foreach ($modules_list as $module){
         $modules[$module['mod_directory']] = $module['mod_name'];
         }
 }
+$modules['contacts'] = 'contacts';
 
 $selects = implode(",\n", $select_list);
 $joins = implode("\n", $join_list);
@@ -94,6 +95,7 @@ modules/<?php echo $m; ?>/savefile.php
     Company<br />
     Project<br />
     Task<br />
+    Contacts<br />
     File<br />
   </tr>
   <tr>
@@ -112,12 +114,13 @@ modules/<?php echo $m; ?>/savefile.php
     <td><input type="field" name="sql_file" size="20" /></td>
   </tr>
   <tr>
-    <td><?php echo $AppUI->_("File Type:"); ?></td>
+    <td><?php echo $AppUI->_("File Type"); ?></td>
     <td>
       <?php 
-        $fileType = array(1 => ".zip - Compressed sql file.",
-                          0 => ".sql - Text file with SQL queries.",
-                          2 => ".csv - Comma Separated Values."); 
+        $fileType = array(1 => $AppUI->_('zip'),
+                          0 => $AppUI->_('sql'),
+                          2 => $AppUI->_('csv'),
+                          3 => $AppUI->_('vcf'));
         echo arraySelect($fileType, 'file_type', '', '1');
       ?>
     </td>
