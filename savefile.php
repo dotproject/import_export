@@ -79,9 +79,11 @@ if (!$canRead) {
 // ----------------------------------------------------------
 // Backup part starting ...
 
+//Functions
+
 function valuesList($table, $row)
 {
-  $sql = "INSERT INTO $table(";
+  $sql = "INSERT INTO `$table` (";
 
   foreach ($row as $key=>$col)
     $sql .= "`$key`, ";
@@ -112,45 +114,21 @@ function dumpAll()
 {
   global $dPconfig;
   $alltables = mysql_list_tables($dPconfig['dbname']);
-  echo $dPconfig['dbname'];
+
   while ($row = mysql_fetch_row($alltables))
-  {
-    $fields = mysql_list_fields($dPconfig['dbname'], $row[0]);
-    $columns = mysql_num_fields($fields);
-
-    // all data from table
-    $result = db_loadList("SELECT * FROM $row[0]");
-    foreach ($result as $tablerow)
-    {
-      $output .= 'INSERT INTO `'.$row[0].'` (';
-      foreach ($tablerow as $key=>$value)
-        $output .= '`$key`,';
-
-      $output = substr($output,0,-1); // remove last comma
-      $output .= ') VALUES (';
-      foreach ($tablerow as $value)
-      {
-        // remove all enters from the field-string. MySql stamement must be on one line
-        $value = str_replace("\r\n",'\n',$value);
-        // replace ' with \'
-        $value = str_replace("'","\'",$value);
-        $output .= "'$value'";
-      }
-      $output = substr($output,0,-1); // remove last comma
-      $output .= ');' . "\n";
-    } // while
-    $output .= "\n";
-  }
+    $output .= tableInsert($row[0]) . "\n";
 
   return $output;
 }
 
-function dumpTasks($project=-1)
+function dumpTasks($project=-1, $task=-1)
 {
   $output = "";
   $sql = "SELECT * FROM tasks";
   if ($project != -1)
     $sql .= " WHERE task_project=$project";
+  else if ($task != -1)
+    $sql .= " WHERE task_id=$task";
 
   $tasks = db_loadList($sql);
     foreach ($tasks as $task)
@@ -214,14 +192,16 @@ function dump($module, $item, $type)
 {
   if ($module == "all")
     return dump();
-  else if ($module == "Projects")
-    return dumpProjects($item);
-  else if ($module == "Tasks")
-    return dumpTasks();
+  else if ($module == "projects")
+    return dumpProject($item);
+  else if ($module == "tasks")
+    return dumpTasks(-1, $item);
   else
     return tableInsert($module);
 }
 
+$error = false;
+$error = true;
 
 $file = dPgetParam($_POST, 'sql_file', 'backup'); //'backup.sql';
 $file_type = dPgetParam($_POST, 'file_type', '0');
@@ -234,23 +214,32 @@ else
   $output = dump($module, $item, $file_type);
 
 
-  if ($file_type == '1')
-  {
-    include('zip.lib.php');
-    $zip = new zipfile;
-    $zip->addFile($output,"$file.sql");
-    $output = $zip->file();
+if ($file_type == '1')
+{
+  include('zip.lib.php');
+  $zip = new zipfile;
+  $zip->addFile($output,"$file.sql");
+  $output = $zip->file();
 
-    $file .= '.zip';
-    $mime_type = 'application/x-zip';
-  }
-  else
-  {
-    $file .= '.sql';
-    $mime_type = 'text/sql';
-  }
-//TODO uncomment after done testing.
-//  header('Content-Disposition: inline; filename="' . $file . '"');
-//  header('Content-Type: ' . $mime_type);
-  echo $output;
+  $file .= '.zip';
+  $mime_type = 'application/x-zip';
+}
+else
+{
+  $file .= '.sql';
+  $mime_type = 'text/sql';
+}
+
+if (!$error)
+{
+  header('Content-Disposition: inline; filename="' . $file . '"');
+  header('Content-Type: ' . $mime_type);
+}
+else
+{
+  print_r($_POST);
+  $output = str_replace("\n", "<br />", $output);
+}
+
+echo $output;
 ?>

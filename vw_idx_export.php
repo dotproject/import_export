@@ -16,12 +16,15 @@ FROM
         modules 
 WHERE 
         mod_active=1 
+        and mod_name in ('Forums', 'Tasks', 'Projects', 'Files', 'Events', 'Companies', 'Contacts')
 ";
+// Above line to be replaced with 'and mod_backupable=1'.... or something like that
 
 $modules_list = db_loadList( $sql);
 $pgos = array();
 $select_list = array();
 $join_list = array();
+$modules = array();
 $count = 0;
 foreach ($modules_list as $module){
         if(isset($module['permissions_item_field']) && isset($module['permissions_item_table']) && isset($module['permissions_item_label'])){
@@ -33,13 +36,15 @@ foreach ($modules_list as $module){
                 //sql joins
                 $join_list[] = "\tLEFT JOIN ".$module['permissions_item_table']." $label ON $label.".$module['permissions_item_field']." = p.permission_item and p.permission_grant_on = '".$module['mod_directory']."'";
                 $count++;
+
+        $modules[$module['mod_directory']] = $module['mod_name'];
         }
 }
 
 $selects = implode(",\n", $select_list);
 $joins = implode("\n", $join_list);
 
-$modules = arrayMerge( array( 'all'=>'all' ), $AppUI->getActiveModules( 'modules' ));
+$modules = arrayMerge( array( 'all'=>'all' ), $modules); //$AppUI->getActiveModules( 'modules' ));
 
 
 ?>
