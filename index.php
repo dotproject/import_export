@@ -15,7 +15,7 @@ $AppUI->setState("BackupIdxTab", $tab);
 $titleBlock = new CTitleBlock($AppUI->_('Backup'), 'backup.png', $m, "$m.$a");
 $titleBlock->show();
 
-$tabBox = new CTabBox("?m=$m", "{$AppUI->cfg['root_dir']}/modules/$m/", $tab);
+$tabBox = new CTabBox("?m=$m", "{$dPconfig['root_dir']}/modules/$m/", $tab);
 $tabBox->add('vw_idx_import', $AppUI->_('Import'));
 if ($canEdit)
   $tabBox->add('vw_idx_export', $AppUI->_('Export'));
