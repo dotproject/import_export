@@ -12,7 +12,9 @@
     $sql = fread($file, $_FILES['sql_file']['size']);
     fclose($file);
 
-    db_exec($sql);
+		$sql = explode(';', $sql);
+		foreach($sql as $insert)
+	    db_exec($insert);
     if (db_error())
       echo $AppUI->_('Failure') . db_error();
     else
