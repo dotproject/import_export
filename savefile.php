@@ -1,5 +1,10 @@
 <?php
 
+/******************************
+ * First half of the file copied from index.php - checking permissions, login, etc.
+ * consider using fileviewer.php (modified accordingly).
+ */
+
 require "../../includes/config.php";
 require "../../classes/ui.class.php";
 
@@ -71,6 +76,7 @@ if (!$canRead) {
 }
 
 // ----------------------------------------------------------
+// Backup part starting ...
 
 function valuesList($table, $row)
 {
