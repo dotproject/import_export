@@ -12,7 +12,7 @@ $tab = dPgetParam($_GET, "tab", 0);
 $AppUI->setState("BackupIdxTab", $tab);
 
 //TODO Create an image
-$titleBlock = new CTitleBlock($AppUI->_('Backup'), 'backup.png', $m, "$m.$a");
+$titleBlock = new CTitleBlock('Backup', 'backup.png', $m, "$m.$a");
 $titleBlock->show();
 
 $tabBox = new CTabBox("?m=$m", "{$dPconfig['root_dir']}/modules/$m/", $tab);
