@@ -115,7 +115,9 @@ modules/<?php echo $m; ?>/savefile.php
     <td><?php echo $AppUI->_("File Type:"); ?></td>
     <td>
       <?php 
-        $fileType = array(1 => ".zip - Compressed sql file.", 0 => ".sql - Text file with SQL queries."); 
+        $fileType = array(1 => ".zip - Compressed sql file.",
+                          0 => ".sql - Text file with SQL queries.",
+                          2 => ".csv - Comma Separated Values."); 
         echo arraySelect($fileType, 'file_type', '', '1');
       ?>
     </td>

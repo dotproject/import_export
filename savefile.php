@@ -79,35 +79,83 @@ if (!$canRead) {
 // ----------------------------------------------------------
 // Backup part starting ...
 
+
+$file = dPgetParam($_POST, 'sql_file', 'backup'); //'backup.sql';
+$file_type = dPgetParam($_POST, 'file_type', '0');
+$module = dPgetParam($_POST, 'module', 'all');
+$item = dPgetParam($_POST, 'item', '-1');
+
 //Functions
 
 function valuesList($table, $row)
 {
   $sql = "INSERT INTO `$table` (";
-
-  foreach ($row as $key=>$col)
-    $sql .= "`$key`, ";
-  $sql = substr($sql, 0, -2);
-
+  $sql .= headerList($row);
   $sql .= ") VALUES(";
-  foreach($row as $col)
-    $sql .= (($col == null)?"NULL":("'" . str_replace("'", "\'", $col) . "'")) . ", ";
-
-  $sql = substr($sql, 0, -2); // remove last comma
+  $sql .= bodyList($row);
   $sql .= ");";
   
   return $sql . "\n";
 }
 
-function tableInsert($table, $keyCol=1, $keyVal=1)
+function bodyList($row)
 {
+  global $file_type;
+
+  if ($file_type/2 == 0)
+    $q = "'";
+  else
+    $q = "\"";
+
   $sql = "";
-  
-  $list = db_loadList("SELECT * FROM $table WHERE $keyCol='$keyVal'");
-  foreach ($list as $row)
-    $sql .= valuesList($table, $row);
+  foreach($row as $col)
+    $sql .= (($col == null)?"NULL":($q . str_replace($q, "\$q", $col) . $q)) . ",";
+    // Substitute the entire line for csv if necessary.
+  $sql = substr($sql, 0, -1); // remove last comma
 
   return $sql;
+}
+
+function headerList($row)
+{
+  global $file_type;
+  if (empty($row))
+    return;
+
+  if ($file_type/2 == 0)
+    $q = "`";
+  else
+    $q = "";
+
+  $sql = "";
+  foreach ($row as $key=>$col)
+    $sql .= "$q$key$q,";
+  $sql = substr($sql, 0, -1);
+
+  return $sql;
+}
+
+function tableInsert($table, $keyCol=1, $keyVal=1)
+{
+  global $file_type;
+  $out = "";
+
+  $list = db_loadList("SELECT * FROM $table WHERE $keyCol='$keyVal'");
+  if ($file_type == 2)
+  {
+    $out = headerList($list[0]) . "\n";
+    foreach($list as $row)
+      $out .= bodyList($row) . "\n";
+  }
+  else if ($file_type / 2 == 0)
+  {
+    $out .= "INSERT INTO `$table` (" . headerList($list[0]) . ") VALUES "; 
+    foreach ($list as $row)
+      $out .= "(".bodyList($row)."), ";
+    $out = substr($out, 0, -2);
+    //valuesList($table, $row);
+  }
+  return $out;
 }
 
 function dumpAll()
@@ -196,6 +244,8 @@ function dumpProject($project=-1)
 
 function dump($module, $item, $type)
 {
+  if ($type == 2)
+    return tableInsert($module);
   if ($module == "all")
     return dump();
   else if ($module == "projects")
@@ -206,12 +256,7 @@ function dump($module, $item, $type)
     return tableInsert($module);
 }
 
-$error = false;
-
-$file = dPgetParam($_POST, 'sql_file', 'backup'); //'backup.sql';
-$file_type = dPgetParam($_POST, 'file_type', '0');
-$module = dPgetParam($_POST, 'module', 'all');
-$item = dPgetParam($_POST, 'item', '-1');
+$testing = false;
 
 if ($module == "all")
   $output = dumpAll();
@@ -219,7 +264,12 @@ else
   $output = dump($module, $item, $file_type);
 
 
-if ($file_type == '1')
+if ($file_type == '2')
+{
+  $file .= '.csv';
+  $mime_type = "text/csv";
+}
+else if ($file_type == '1')
 {
   include('zip.lib.php');
   $zip = new zipfile;
@@ -235,7 +285,7 @@ else
   $mime_type = 'text/sql';
 }
 
-if (!$error)
+if (!$testing)
 {
   header('Content-Disposition: inline; filename="' . $file . '"');
   header('Content-Type: ' . $mime_type);
@@ -243,6 +293,7 @@ if (!$error)
 else
 {
   print_r($_POST);
+  $output = "\n\n" . $output;
   $output = str_replace("\n", "<br />", $output);
 }
 
