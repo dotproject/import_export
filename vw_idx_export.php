@@ -83,11 +83,8 @@ function setPermItem( key, val ) {
         }
 }
 </script>
-<!--index.php?m=<?php echo $m; ?>&a=savefile.php
 
-modules/<?php echo $m; ?>/savefile.php
--->
-<form name="frm" action="modules/<?php echo $m; ?>/savefile.php" method="post">
+<form name="frm" action="?m=<?php echo $m; ?>&a=savefile&suppressHeaders=1" method="post">
   <input type="hidden" name="item" value="-1" />
   <table>
   <tr><td rowspan="5">
@@ -117,12 +114,13 @@ modules/<?php echo $m; ?>/savefile.php
     <td><?php echo $AppUI->_("File Type"); ?></td>
     <td>
       <?php 
-        $fileType = array(1 => $AppUI->_('zip'),
-                          0 => $AppUI->_('sql'),
-                          2 => $AppUI->_('csv'),
-                          3 => $AppUI->_('vcf'));
-        echo arraySelect($fileType, 'file_type', '', '1');
+        $fileType = array('sql' => $AppUI->_('sql'),
+                          'csv' => $AppUI->_('csv'),
+													'xml' => $AppUI->_('xml'),
+                          'vcf' => $AppUI->_('vcf'));
+        echo arraySelect($fileType, 'file_type', '', 'sql');
       ?>
+			<input type="checkbox" name="zipped" value="1" />zipped
     </td>
   </tr>
   </table>

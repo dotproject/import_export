@@ -1,85 +1,13 @@
 <?php
-
-/******************************
- * First half of the file copied from index.php - checking permissions, login, etc.
- * consider using fileviewer.php (modified accordingly).
- */
-
-// TODO Change this!!!
-require_once "../../includes/config.php";
-require_once "../../classes/ui.class.php";
-require_once "../../includes/main_functions.php";
-require_once "../../includes/db_adodb.php";
-
-session_name( 'dotproject' );
-if (get_cfg_var( 'session.auto_start' ) > 0) {
-        session_write_close();
-}
-session_start();
-
-  require_once( $dPconfig['root_dir'] . '/includes/db_connect.php' );
-  require_once( "../../misc/debug.php" );
-// check if session has previously been initialised
-// if no ask for logging and do redirect
-if (!isset( $_SESSION['AppUI'] ) || isset($_GET['logout'])) {
-    $_SESSION['AppUI'] = new CAppUI();
-  $AppUI =& $_SESSION['AppUI'];
-  //$AppUI->setConfig( $dPconfig );
-  $AppUI->checkStyle();
-  require_once( $AppUI->getSystemClass( 'dp' ) );
-  
-
-if ($AppUI->doLogin()) $AppUI->loadPrefs( 0 );
-        // check if the user is trying to log in
-        if (isset($_POST['login'])) {
-                $username = dPgetParam( $_POST, 'username', '' );
-                $password = dPgetParam( $_POST, 'password', '' );
-                $redirect = dPgetParam( $_REQUEST, 'redirect', '' );
-                $ok = $AppUI->login( $username, $password );
-                if (!$ok) {
-                        //display login failed message 
-                        $uistyle = $AppUI->getPref( 'UISTYLE' ) ? $AppUI->getPref( 'UISTYLE' ) : $AppUI->cfg['host_style'];
-                        $AppUI->setMsg( 'Login Failed' );
-                        require "../../style/$uistyle/login.php";
-                        session_unset();
-                        exit;
-                }
- //               header ( "Location: fileviewer.php?$redirect" );
-                exit;
-        }       
-
-        $uistyle = $AppUI->getPref( 'UISTYLE' ) ? $AppUI->getPref( 'UISTYLE' ) : $AppUI->cfg['host_style'];
-        // check if we are logged in
-        if ($AppUI->doLogin()) {
-            $AppUI->setUserLocale();
-                @include_once( "../../locales/$AppUI->user_locale/locales.php" );
-                @include_once( "../../locales/core.php" );
-                setlocale( LC_TIME, $AppUI->user_locale );
-                
-                $redirect = @$_SERVER['QUERY_STRING'];
-                if (strpos( $redirect, 'logout' ) !== false) $redirect = '';    
-                if (isset( $locale_char_set )) header("Content-type: text/html;charset=$locale_char_set");
-                require "../../style/$uistyle/login.php";
-                session_unset();
-                session_destroy();
-                exit;
-        }       
-}
-$AppUI =& $_SESSION['AppUI'];
-
-include "{$dPconfig['root_dir']}/includes/permissions.php";
-
-$canRead = !getDenyRead( 'backup' );
-if (!$canRead) {
-        $AppUI->redirect( "m=public&a=access_denied" );
-}
+if (!$canRead)
+	$AppUI->redirect( "m=public&a=access_denied" );
 
 // ----------------------------------------------------------
 // Backup part starting ...
-
-
-$file = dPgetParam($_POST, 'sql_file', 'backup'); //'backup.sql';
-$file_type = dPgetParam($_POST, 'file_type', '0');
+$separator = ',';
+$file = dPgetParam($_POST, 'sql_file', 'backup'); 
+$file_type = dPgetParam($_POST, 'file_type', 'sql');
+$zipped = dPgetParam($_POST, 'zipped', false);
 $module = dPgetParam($_POST, 'module', 'all');
 $item = dPgetParam($_POST, 'item', '-1');
 
@@ -98,17 +26,20 @@ function valuesList($table, $row)
 
 function bodyList($row)
 {
-  global $file_type;
+  global $file_type, $separator;
 
-  if ($file_type/2 == 0)
-    $q = "'";
+  if ($file_type == 'sql')
+	{
+  	$separator = ',';
+	  $q = "'";
+	}
   else
-    $q = "\"";
+    $q = '"';
 
   $sql = "";
   foreach($row as $key=>$col)
     if (!is_int($key))
-    $sql .= (($col == null)?"NULL":($q . str_replace($q, "\$q", $col) . $q)) . ",";
+    $sql .= (($col == null)?'NULL':($q . str_replace($q, "\$q", $col) . $q)) . $separator;
     // Substitute the entire line for csv if necessary.
   $sql = substr($sql, 0, -1); // remove last comma
 
@@ -117,22 +48,40 @@ function bodyList($row)
 
 function headerList($row)
 {
-  global $file_type;
+  global $file_type, $separator;
   if (empty($row))
     return;
 
-  if ($file_type/2 == 0)
+  if ($file_type == 'sql')
+	{
     $q = "`";
+		$separator = ',';
+	}
   else
-    $q = "";
+    $q = '';
 
-  $sql = "";
+  $out = '';
   foreach ($row as $key=>$col)
     if (!is_int($key))
-        $sql .= "$q$key$q,";
-  $sql = substr($sql, 0, -1);
+      $out .= "$q$key$q$separator";
 
-  return $sql;
+  return substr($out, 0, -1);
+}
+
+function xmlList($row)
+{
+	$out = '
+	<item ';
+	foreach($row as $key => $col)
+		if (!is_int($key))
+		{
+//			if (strpos($key, '_') > -1)
+//				$key = substr($key, strpos($key, '_')+1); 
+			$out .=  $key.'="'.htmlspecialchars($col).'" ';
+		}
+	$out .= '/>';
+
+	return $out;
 }
 
 function tableInsert($table, $keyCol=1, $keyVal=1)
@@ -141,20 +90,27 @@ function tableInsert($table, $keyCol=1, $keyVal=1)
   $out = "";
 
   $list = db_loadList("SELECT * FROM $table WHERE $keyCol='$keyVal'");
-  if ($file_type == 2)
+  if ($file_type == 'csv')
   {
     $out = headerList($list[0]) . "\n";
     foreach($list as $row)
       $out .= bodyList($row) . "\n";
   }
-  else if ($file_type / 2 == 0)
+  else if ($file_type == 'sql')
   {
-//    $out .= "INSERT INTO `$table` (" . headerList($list[0]) . ") VALUES "; 
     foreach ($list as $row)
-//      $out .= "(".bodyList($row)."), ";
-//    $out = substr($out, 0, -2);
-    $out = valuesList($table, $row);
+    	$out = valuesList($table, $row);
   }
+	else if ($file_type == 'xml')
+	{
+		$out = "<$table>";
+		if (is_array($list))
+			foreach($list as $row)
+				$out .= xmlList($row);
+		$out .= "
+</$table>";
+	}
+
   return $out;
 }
 
@@ -164,7 +120,8 @@ function dumpAll()
   $alltables = mysql_list_tables($dPconfig['dbname']);
 
   while ($row = mysql_fetch_row($alltables))
-    $output .= tableInsert($row[0]) . "\n";
+    $output .= tableInsert($row[0]) . '
+';
 
   return $output;
 }
@@ -208,32 +165,32 @@ function dumpContacts()
         $output = '';
         foreach($contacts as $contact)
         {
-        // instantiate a builder object
-        // (defaults to version 3.0)
-        $vcard = new Contact_Vcard_Build();
-        $vcard->setFormattedName($contact['contact_first_name'].' '.$contact['contact_last_name']);
-        $vcard->setName($contact['contact_last_name'], $contact['contact_first_name'], $contact['contact_type'],
-                $contact['contact_title'], '');
-        $vcard->setSource($dPconfig['company_name'].' '.$dPconfig['page_title'].': '.$dPconfig['site_domain']);
-        $vcard->setBirthday($contact['contact_birthday']);
-       $contact['contact_notes'] = str_replace("\r", " ", $contact['contact_notes'] );
-        $vcard->setNote($contact['contact_notes']);
-        $vcard->addOrganization($contact['contact_company']);
-        $vcard->addTelephone($contact['contact_phone']);
-        $vcard->addParam('TYPE', 'PF');
-        $vcard->addTelephone($contact['contact_phone2']);
-        $vcard->addTelephone($contact['contact_mobile']);
-        $vcard->addParam('TYPE', 'car');
-        $vcard->addEmail($contact['contact_email']);
-        //$vcard->addParam('TYPE', 'WORK');
-        $vcard->addParam('TYPE', 'PF');
-        $vcard->addEmail($contact['contact_email2']);
-        //$vcard->addParam('TYPE', 'HOME');
-        $vcard->addAddress('', $contact['contact_address2'], $contact['contact_address1'],
-                $contact['contact_city'], $contact['contact_state'], $contact['contact_zip'], $contact['contact_country']);
-
-        $output .= $vcard->fetch();
-        $output .= "\n\n";
+          // instantiate a builder object
+          // (defaults to version 3.0)
+          $vcard = new Contact_Vcard_Build();
+          $vcard->setFormattedName($contact['contact_first_name'].' '.$contact['contact_last_name']);
+          $vcard->setName($contact['contact_last_name'], $contact['contact_first_name'], $contact['contact_type'],
+                  $contact['contact_title'], '');
+          $vcard->setSource($dPconfig['company_name'].' '.$dPconfig['page_title'].': '.$dPconfig['site_domain']);
+          $vcard->setBirthday($contact['contact_birthday']);
+         $contact['contact_notes'] = str_replace("\r", " ", $contact['contact_notes'] );
+          $vcard->setNote($contact['contact_notes']);
+          $vcard->addOrganization($contact['contact_company']);
+          $vcard->addTelephone($contact['contact_phone']);
+          $vcard->addParam('TYPE', 'PF');
+          $vcard->addTelephone($contact['contact_phone2']);
+          $vcard->addTelephone($contact['contact_mobile']);
+          $vcard->addParam('TYPE', 'car');
+          $vcard->addEmail($contact['contact_email']);
+          //$vcard->addParam('TYPE', 'WORK');
+          $vcard->addParam('TYPE', 'PF');
+          $vcard->addEmail($contact['contact_email2']);
+          //$vcard->addParam('TYPE', 'HOME');
+          $vcard->addAddress('', $contact['contact_address2'], $contact['contact_address1'],
+                  $contact['contact_city'], $contact['contact_state'], $contact['contact_zip'], $contact['contact_country']);
+  
+          $output .= $vcard->fetch();
+          $output .= "\n\n";
         }
 
         return $output;
@@ -303,22 +260,17 @@ $output = "";
 
   $rows = db_loadList($sql);
   foreach ($rows as $row)
-  {
     $output .= dumpProject($row['project_id']);
-  }
-
 
   return $output;
 }
 
 function dump($module, $item, $type)
 {
-  if ($type == 2)
-    return tableInsert($module);
-  if ($type == 3 && $module == 'contacts')
+  if ($type == 'vcf' && $module == 'contacts')
     return dumpContacts();
   if ($module == "all")
-    return dump();
+    return dumpAll();
   else if ($module == "projects")
     return dumpProject($item);
   else if ($module == "tasks")
@@ -329,40 +281,34 @@ function dump($module, $item, $type)
     return tableInsert($module);
 }
 
-$testing = false;
+//if ($module == "all")
+//  $output = dumpAll();
+//else
+$output = dump($module, $item, $file_type);
+if ($file_type == 'xml')
+	$output = '<xml>' . $output . '</xml>';
 
-if ($module == "all")
-  $output = dumpAll();
-else
-  $output = dump($module, $item, $file_type);
+$file .= '.' . $file_type;
 
+$mimes = array(
+'csv' => 'text/csv',
+'vcf' => 'text/x-vcard',
+'sql' => 'text/sql',
+'xml' => 'text/xml'); // application/xslt+xml
+$mime_type = $mimes[$file_type];
 
-if ($file_type == '2')
-{
-  $file .= '.csv';
-  $mime_type = "text/csv";
-}
-else if ($file_type == '1')
+if ($zipped)
 {
   include('zip.lib.php');
   $zip = new zipfile;
-  $zip->addFile($output,"$file.sql");
+  $zip->addFile($output,$file);
   $output = $zip->file();
 
   $file .= '.zip';
   $mime_type = 'application/x-zip';
 }
-else if ($file_type == '3')
-{
-  $file .= '.vcf';
-  $mime_type = 'text/x-vcard';
-}
-else
-{
-  $file .= '.sql';
-  $mime_type = 'text/sql';
-}
 
+$testing = false;
 if (!$testing)
 {
   header('Content-Disposition: inline; filename="' . $file . '"');
@@ -370,9 +316,9 @@ if (!$testing)
 }
 else
 {
-  print_r($_POST);
-  $output = "\n\n" . $output;
-  $output = str_replace("\n", "<br />", $output);
+	echo '<code>';
+	print_r($_POST);
+  $output .= '</code>';
 }
 
 echo $output;
