@@ -126,18 +126,24 @@ function dumpTasks($project=-1, $task=-1)
   $output = "";
   $sql = "SELECT * FROM tasks";
   if ($project != -1)
+  {
     $sql .= " WHERE task_project=$project";
+    $output .= "#task_project#\n";
+  }
   else if ($task != -1)
     $sql .= " WHERE task_id=$task";
 
+  // Used for dynamic ID setting.
   $tasks = db_loadList($sql);
-    foreach ($tasks as $task)
-    {
-      $output .= valuesList("tasks", $task);
+  foreach ($tasks as $task)
+  {
+    $output .= valuesList("tasks", $task);
 
-      $output .= tableInsert("task_dependencies", "dependencies_task_id", $task['task_id']);
-      $output .= tableInsert("task_log", "task_log_task", $task['task_id']);
-    }
+    $output .= "#dependencies_task_id#\n";
+    $output .= tableInsert("task_dependencies", "dependencies_task_id", $task['task_id']);
+    $output .= "#task_log_task#\n";
+    $output .= tableInsert("task_log", "task_log_task", $task['task_id']);
+  }
 
   return $output;
 }
@@ -147,17 +153,21 @@ function dumpForums($project=-1, $forum=-1)
   $output = "";
   $sql = "SELECT * FROM forums";
   if ($forum != -1)
+  {
     $sql .= " WHERE forum_project='$row[project_id]'";
+    $output .= "#forum_project#\n";
+  }
 
-    $forums = db_loadList($sql);
-    foreach ($forums as $forum)
-    {
-      $output .= valuesList("forums", $forum);
+  $forums = db_loadList($sql);
+  foreach ($forums as $forum)
+  {
+    $output .= valuesList("forums", $forum);
 
-      $output .= tableInsert("forum_messages", "message_forum", $forum['forum_id']);
-     // Doesn't make sense - users/forums don't exist
-     // $output .= tableInsert("forum_watch", "watch_forum", $forum['forum_id']);
-    }
+    $output .= "#message_forum#\n";
+    $output .= tableInsert("forum_messages", "message_forum", $forum['forum_id']);
+    // Doesn't make sense - users/forums don't exist
+    // $output .= tableInsert("forum_watch", "watch_forum", $forum['forum_id']);
+  }
 
   return $output;
 }
@@ -174,13 +184,9 @@ function dumpProject($project=-1)
   {
     //TODO: if parent company doesn't exist, create it "INSERT INTO companies WHERE company_id='$row[project_company]'"
     //TODO: Check if helpdesk and other modules exists, and insert their tables as well.
-
     $output .= valuesList("projects", $row);
-
     $output .= dumpTasks($row['project_id']);
-
     $output .= dumpForums($row['project_id'], -1);
-
     $output .= tableInsert("files", "file_project", $row['project_id']);
     $output .= tableInsert("events", "event_project", $row['project_id']);
   }
@@ -201,7 +207,6 @@ function dump($module, $item, $type)
 }
 
 $error = false;
-$error = true;
 
 $file = dPgetParam($_POST, 'sql_file', 'backup'); //'backup.sql';
 $file_type = dPgetParam($_POST, 'file_type', '0');
