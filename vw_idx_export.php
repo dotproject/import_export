@@ -65,7 +65,7 @@ function popPermItem()
 
         if (!(pgo in tables)) 
         {
-                alert( 'No list associated with this Module.' );
+                alert( <?php echo $AppUI->_('No list associated with this Module.', UI_OUTPUT_JS); ?>' );
                 return;
         }
         window.open('./index.php?m=public&a=selector&dialog=1&callback=setPermItem&table=' + tables[pgo], 'selector', 'left=50,top=50,height=250,width=400,resizable')
