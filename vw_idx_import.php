@@ -8,23 +8,30 @@
   if (dPgetParam($_POST, "submit"))
   {
     // $_FILES exists since php 4.1.0
-    $file = fopen($_FILES['sql_file']['tmp_name'], "r");
-    $sql = fread($file, $_FILES['sql_file']['size']);
+		$filename = $_FILES['upload_file']['tmp_name'];
+		$fileext = substr($filename, -4);
+    $file = fopen($filename, "r");
+    $filedata = fread($file, $_FILES['upload_file']['size']);
     fclose($file);
 
-		$sql = explode(';', $sql);
-		foreach($sql as $insert)
-	    db_exec($insert);
-    if (db_error())
-      echo $AppUI->_('Failure') . db_error();
+		if ($fileext == '.sql');
+		{
+			$sql = explode(';', $filedata);
+			foreach($sql as $insert)
+		    db_exec($insert);
+			$error = db_error();
+		}
+
+    if (isset($error))
+ 	    echo $AppUI->_('Failure') . $error;
     else
-      echo $AppUI->_('Success');
-  }
+ 	    echo $AppUI->_('Success');
+	 }
 
 ?>
 
 <form enctype="multipart/form-data" action="index.php?m=backup" method="post">
-  <input type="file" name="sql_file" />
+  <input type="file" name="upload_file" />
   <input type="hidden" name="MAX_FILE_SIZE" value="8388608" />
   <input type="submit" name="submit" value="<?php echo $AppUI->_("Import Data"); ?>" />
 </form>

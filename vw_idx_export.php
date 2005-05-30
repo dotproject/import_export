@@ -65,7 +65,7 @@ function popPermItem()
 
         if (!(pgo in tables)) 
         {
-                alert( <?php echo $AppUI->_('No list associated with this Module.', UI_OUTPUT_JS); ?>' );
+                alert( '<?php echo $AppUI->_('No list associated with this Module.', UI_OUTPUT_JS); ?>' );
                 return;
         }
         window.open('./index.php?m=public&a=selector&dialog=1&callback=setPermItem&table=' + tables[pgo], 'selector', 'left=50,top=50,height=250,width=400,resizable')
@@ -117,7 +117,8 @@ function setPermItem( key, val ) {
         $fileType = array('sql' => $AppUI->_('sql'),
                           'csv' => $AppUI->_('csv'),
 													'xml' => $AppUI->_('xml'),
-                          'vcf' => $AppUI->_('vcf'));
+                          'vcf' => $AppUI->_('vcf'),
+													'msproject' => $AppUI->_('Microsoft Project file'));
         echo arraySelect($fileType, 'file_type', '', 'sql');
       ?>
 			<input type="checkbox" name="zipped" value="1" />zipped
